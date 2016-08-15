@@ -16,7 +16,13 @@
 
 package io.appflate.restmock.utils;
 
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import okhttp3.mockwebserver.RecordedRequest;
 
@@ -64,6 +70,55 @@ public class RequestMatchers {
                 return item.getPath().toLowerCase(Locale.US).startsWith(urlPart.toLowerCase(Locale.US));
             }
         };
+    }
+
+    public static RequestMatcher hasQueryParameters() {
+      return new RequestMatcher("matched query parameters") {
+        @Override
+        protected boolean matchesSafely(RecordedRequest item) {
+          try {
+            URL mockUrl = new URL("http", "localhost", item.getPath());
+            Map<String, List<String>> queryParams = RestMockUtils.splitQuery(mockUrl);
+            return queryParams.size() > 0;
+          } catch (MalformedURLException e) {
+            return false;
+          } catch (UnsupportedEncodingException e) {
+            return false;
+          }
+        }
+      };
+    }
+
+    public static RequestMatcher hasQueryParameters(final SimpleEntry<String, String>... expectedParams) {
+      return new RequestMatcher("matched query parameters") {
+        @Override
+        protected boolean matchesSafely(RecordedRequest item) {
+          try {
+            URL mockUrl = new URL("http", "localhost", item.getPath());
+            Map<String, List<String>> queryParams = RestMockUtils.splitQuery(mockUrl);
+            if (queryParams.size() == 0) {
+              return false;
+            }
+
+            for (SimpleEntry<String, String> param : expectedParams) {
+              if (!queryParams.containsKey(param.getKey())) {
+                return false;
+              }
+
+              List<String> paramValues = queryParams.get(param.getKey());
+              if (!paramValues.contains(param.getValue())) {
+                return false;
+              }
+            }
+
+            return true;
+          } catch (MalformedURLException e) {
+            return false;
+          } catch (UnsupportedEncodingException e) {
+            return false;
+          }
+        }
+      };
     }
 
     public static RequestMatcher httpMethodIs(final String method) {
