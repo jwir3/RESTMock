@@ -17,6 +17,8 @@
 package io.appflate.restmock.utils;
 
 import java.util.Locale;
+import java.util.List;
+import java.util.AbstractMap.SimpleEntry;
 
 import okhttp3.mockwebserver.RecordedRequest;
 
@@ -30,6 +32,15 @@ public class RequestMatchers {
             @Override
             protected boolean matchesSafely(RecordedRequest item) {
                 return item.getPath().toLowerCase(Locale.US).contains(urlPart.toLowerCase(Locale.US));
+            }
+        };
+    }
+
+    public static RequestMatcher pathDoesNotContain(final String urlPart) {
+        return new RequestMatcher("url does not contain: " + urlPart) {
+            @Override
+            protected boolean matchesSafely(RecordedRequest item) {
+                return !item.getPath().toLowerCase(Locale.US).contains(urlPart.toLowerCase(Locale.US));
             }
         };
     }
@@ -55,6 +66,63 @@ public class RequestMatchers {
                 return item.getPath().toLowerCase(Locale.US).startsWith(urlPart.toLowerCase(Locale.US));
             }
         };
+    }
+
+    public static RequestMatcher hasQueryParameters() {
+      return new RequestMatcher("matched query parameters") {
+        @Override
+        protected boolean matchesSafely(RecordedRequest item) {
+          UrlQuerySanitizer sanitizer = new UrlQuerySanitizer();
+          sanitizer.setAllowUnregisteredParamaters(true);
+          try {
+            String query = item.getPath().split("\\?")[1];
+            sanitizer.parseQuery(query);
+            List<UrlQuerySanitizer.ParameterValuePair> pairs = sanitizer.getParameterList();
+            return pairs.size() > 0;
+          } catch (ArrayIndexOutOfBoundsException e) {
+            // We didn't match a '?' in the path.
+            return false;
+          }
+        }
+      };
+    }
+
+    public static RequestMatcher hasQueryParameters(SimpleEntry<String, String>... queryParams) {
+      return new RequestMatcher("matched query parameters") {
+        @Override
+        protected boolean matchesSafely(RecordedRequest item) {
+          UrlQuerySanitizer sanitizer = new UrlQuerySanitizer();
+          sanitizer.setAllowUnregisteredParamaters(true);
+          try {
+            String query = item.getPath().split("\\?")[1];
+            sanitizer.parseQuery(query);
+            List<UrlQuerySanitizer.ParameterValuePair> pairs = sanitizer.getParameterList();
+            if (pairs.size() != queryParams.length) {
+              return false;
+            }
+
+              for (SimpleEntry<String, String> nextPair : queryParams) {
+                boolean found = false;
+                for (UrlQuerySanitizer.ParameterValuePair param : pairs) {
+                  if (nextPair.getKey().equals(param.mParameter)
+                      && nextPair.getValue().equals(param.mValue)) {
+                    found = true;
+                    break;
+                  }
+                }
+
+                if (!found) {
+                  return false;
+              }
+            }
+
+            return true;
+          } catch (ArrayIndexOutOfBoundsException e) {
+            // We didn't match a '?' in the path.
+            return false;
+          }
+        }
+      };
     }
 
     public static RequestMatcher httpMethodIs(final String method) {
